@@ -209,7 +209,14 @@ input::placeholder, textarea::placeholder{ color: var(--mid-slate); }
 .btn-ghost:hover{ background: var(--border-subtle); }
 .btn-text{ background:transparent; color: var(--venue-blue); padding: var(--sp-8) var(--sp-4); }
 .btn-text:hover{ text-decoration: underline; }
-.btn-danger-text{ background:transparent; color: var(--alert-red); padding: var(--sp-8) var(--sp-4); font-size:13px; }
+.btn-danger-text{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:transparent; color: var(--alert-red);
+  border:1px solid var(--alert-red); border-radius: var(--radius-md);
+  gap: var(--sp-6); padding: var(--sp-6) var(--sp-12); font-size:13px; font-weight:500;
+  cursor:pointer; transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+.btn-danger-text:hover{ background: var(--alert-red); color: var(--canvas); }
 .btn-sm{ padding: var(--sp-6) var(--sp-12); font-size:13px; }
 
 /* Repeater rows */
@@ -507,7 +514,7 @@ function repeaterAddBtn(path, label){
   return `<button type="button" class="btn btn-ghost btn-sm" data-repeater-add="${path}">+ ${esc(label)}</button>`;
 }
 function repeaterRemoveBtn(path, idx){
-  return `<button type="button" class="btn-danger-text" data-repeater-remove="${path}" data-idx="${idx}">Remove</button>`;
+  return `<button type="button" class="btn-danger-text" data-repeater-remove="${path}" data-idx="${idx}">× Remove</button>`;
 }
 
 function copyFromBanner(sectionKey, currentLocId){
@@ -573,16 +580,16 @@ function footerNav(){
 /* --- STEP 1 --- */
 function stepIntegration(){
   const sys = FD.integration.system;
-  return panelHead("Step 1 of 9","Integrate with our AI agent","Which system do you want to integrate with for capturing leads?") +
+  return panelHead("Step 1 of 9","Integrate with our AI agent","Which system will our AI agent integrate with to answer your leads?") +
     fieldWrap("Integration system", true, radioGroup('integration.system', [
       "Salesforce","Delphi","Tripleseat","Email Parser (forwarding inquiry emails)","Web Snippet (embed on your website)","Something else / not sure yet"
     ])) +
     (sys === "Tripleseat" ? `
       <div class="subblock">
         <div class="t-title" style="margin-bottom:8px;">Connect Mia in Tripleseat</div>
-        <div class="t-body" style="color:var(--evening-slate); margin-bottom:12px;">To connect to Hermetic AI, our AI agent must be added as a Customer Admin in Tripleseat.</div>
+        <div class="t-body" style="color:var(--evening-slate); margin-bottom:12px;">Mia works inside Tripleseat by reading your availability, room capacities, pricing, and booking rules so she can answer guests accurately and create leads directly in your account when someone wants to book. To do this in real time, she must be added as a Customer Admin in Tripleseat.</div>
         <ol style="padding-left:18px; display:flex; flex-direction:column; gap:10px;" class="t-body">
-          <li>Have your internal Tripleseat Admin complete the connection form. If that's not you, loop them in.</li>
+          <li>Have your internal Tripleseat Admin complete the connection steps. If that's not you, share this form with them.</li>
           <li>Add a new user in Tripleseat: First name <b>Mia</b>, Last name <b>Hermetic</b>, Email <span class="mono">onboarding+[yourcompanyname]@hermetic.ai</span></li>
           <li>Assign the role of <b>Customer Admin</b> within Tripleseat. If you don't see that option, contact your Tripleseat rep.</li>
         </ol>
@@ -602,7 +609,7 @@ function stepLocations(){
       <div class="repeater-row">
         <div class="repeater-row-head">
           <div class="t-caption">Location ${i+1}</div>
-          ${FD.locations.length>1 ? `<button type="button" class="btn-danger-text" data-locremove="${l.id}">Remove</button>` : ''}
+          ${FD.locations.length>1 ? `<button type="button" class="btn-danger-text" data-locremove="${l.id}">× Remove</button>` : ''}
         </div>
         <input type="text" data-locname="${l.id}" value="${esc(l.name)}" placeholder="e.g. The Ivy Room — Downtown">
       </div>
@@ -696,7 +703,7 @@ function handoffFieldSet(basePath, locId){
       ${repeaterAddBtn(basePath+'.coordinators','Add another coordinator')}
     </div>
 
-    ${fieldWrap("How do you route leads today?", false, textarea(basePath+'.routing',''))}
+    ${fieldWrap("How do you assign leads today?", false, textarea(basePath+'.routing',''))}
   `;
 }
 
@@ -855,10 +862,6 @@ function specialFieldSet(basePath){
   d.pricingExceptions = d.pricingExceptions || [];
   d.carveOuts = d.carveOuts || [];
   return `
-    ${fieldWrap("When a guest messages outside your regular or private-event hours, how should Mia respond?", true,
-      radioGroup(basePath+'.afterHours', ["Respond normally, just like during business hours","Send an acknowledgment now; full response comes during business hours","Something else"]))}
-    ${d.afterHours==='Something else' ? fieldWrap("Describe", false, textarea(basePath+'.afterHoursOther','')) : ''}
-
     <div class="field">
       <label class="t-label">Room availability rules</label>
       <div class="t-caption" style="margin-bottom:10px;">Rooms that should be unavailable only under certain conditions — or always off-limits.</div>
