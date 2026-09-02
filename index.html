@@ -186,6 +186,43 @@ input::placeholder, textarea::placeholder{ color: var(--mid-slate); }
 .choice input{ margin-top:2px; accent-color: var(--venue-blue); flex-shrink:0; width:16px;height:16px; }
 .choice .choice-text{ font-size:14px; color: var(--night-ink); }
 .choice .choice-sub{ font-size:12px; color: var(--mid-slate); margin-top:2px; }
+/* Agent naming rows (step 3) */
+.naming-row{
+  display:grid;
+  grid-template-columns: minmax(130px, 0.9fr) minmax(200px, 1.3fr) auto;
+  gap: var(--sp-24);
+  align-items:start;
+  padding: var(--sp-20) 0;
+  border-bottom:1px solid var(--border-subtle);
+}
+.naming-list .naming-row:first-child{ padding-top: var(--sp-4); }
+.naming-list .naming-row:last-child{ border-bottom:none; padding-bottom: var(--sp-4); }
+.naming-row .naming-loc{ padding-top: var(--sp-24); }
+.naming-col-label{
+  display:block; font-size:14px; font-weight:500; line-height:1.5;
+  color: var(--night-ink); margin-bottom: var(--sp-8);
+}
+.naming-swap{ margin-top: var(--sp-8); }
+.naming-swap .btn-text{ padding-left:0; padding-right:0; font-size:14px; }
+.naming-row input[readonly]{ cursor:default; }
+.pronoun-group{ display:flex; flex-wrap:wrap; gap: var(--sp-8); }
+.pronoun-chip{
+  position:relative;
+  display:inline-flex; align-items:center;
+  border:1px solid var(--border-default); border-radius: var(--radius-full);
+  padding: var(--sp-8) var(--sp-16);
+  font-size:14px; color: var(--evening-slate);
+  cursor:pointer; white-space:nowrap;
+  transition: border-color .12s ease, background .12s ease, color .12s ease;
+}
+.pronoun-chip:hover{ border-color: var(--venue-blue); }
+.pronoun-chip.selected{ border-color: var(--venue-blue); background: var(--venue-blue-tint); color: var(--venue-blue); font-weight:500; }
+.pronoun-chip input{ position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
+.pronoun-chip:focus-within{ border-color: var(--venue-blue); box-shadow: 0 0 0 3px var(--venue-blue-tint); }
+@media (max-width:760px){
+  .naming-row{ grid-template-columns:1fr; gap: var(--sp-16); }
+  .naming-row .naming-loc{ padding-top:0; }
+}
 
 /* Toggle pill (yes/no, same-for-all) */
 .pill-toggle{ display:inline-flex; border:1px solid var(--border-default); border-radius: var(--radius-full); padding:2px; gap:2px; }
@@ -217,6 +254,29 @@ input::placeholder, textarea::placeholder{ color: var(--mid-slate); }
   cursor:pointer; transition: background .12s ease, border-color .12s ease, color .12s ease;
 }
 .btn-danger-text:hover{ background: var(--alert-red); color: var(--canvas); }
+/* Voice input */
+.field-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap: var(--sp-12); flex-wrap:wrap; margin-bottom: var(--sp-8);
+}
+.field-head label.t-label{ margin-bottom:0; flex:1 1 auto; min-width:0; }
+.voice-btn{
+  display:inline-flex; align-items:center; gap: var(--sp-8);
+  background: transparent; color: var(--venue-blue);
+  border:1px solid var(--border-default); border-radius: var(--radius-full);
+  font-family: inherit; font-size:13px; font-weight:500;
+  padding: var(--sp-6) var(--sp-12); cursor:pointer;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+.voice-btn:hover{ border-color: var(--venue-blue); background: var(--venue-blue-tint); }
+.voice-btn.recording{ background: var(--alert-red); border-color: var(--alert-red); color: var(--canvas); }
+.voice-btn.recording:hover{ background: var(--alert-red); }
+.voice-btn .voice-icon{ flex-shrink:0; }
+.voice-btn.recording .voice-icon{ animation: voicePulse 1.2s ease-in-out infinite; }
+@keyframes voicePulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+.voice-status{ display:block; margin-top: var(--sp-6); font-size:12px; color: var(--mid-slate); }
+.voice-status:empty{ display:none; }
+.field-head .voice-status{ margin-top:0; }
 .btn-sm{ padding: var(--sp-6) var(--sp-12); font-size:13px; }
 
 /* Repeater rows */
@@ -348,6 +408,8 @@ input::placeholder, textarea::placeholder{ color: var(--mid-slate); }
 
 const CONFIG = {
   // Paste your deployed Apps Script Web App /exec URL here.
+  // NOTE: make sure this matches the SAME deployment URL used in account-hub.html —
+  // both files must point at the one Apps Script backend.
   ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbwIRubWd-gnfi6bB19Wl4z8vxV_KyS1-0IB6q__YX4ETZVWGxJ80UmJMvqReCSMyg5UZw/exec",
   MAX_FILE_MB: 15
 };
@@ -459,6 +521,36 @@ function textInput(path, placeholder, type){
 function textarea(path, placeholder){
   const val = getPath(FD, path) || '';
   return `<textarea data-bind="${path}" placeholder="${esc(placeholder||'')}">${esc(val)}</textarea>`;
+}
+
+const MIC_SVG = `<svg class="voice-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/>
+  <path d="M5 11v1a7 7 0 0 0 14 0v-1"/>
+  <path d="M12 19v3"/>
+</svg>`;
+
+/* Click-to-record control that transcribes into the field at `path`. */
+function voiceControl(path){
+  if(!voiceSupported()){
+    return `<span class="voice-status">Voice input isn't supported in this browser — please type your answer.</span>`;
+  }
+  const recording = VOICE.path === path;
+  return `<button type="button" class="voice-btn ${recording?'recording':''}" data-voice-btn="${path}" aria-pressed="${recording?'true':'false'}">
+    ${MIC_SVG}<span class="voice-label">${recording?'Recording — click to stop':'Record response'}</span>
+  </button>`;
+}
+
+/* Like fieldWrap, but the record control sits inline with the question label. */
+function voiceField(labelText, required, path, placeholder, hint){
+  return `<div class="field">
+    <div class="field-head">
+      <label class="t-label">${esc(labelText)}${required?'<span class="req">*</span>':''}</label>
+      ${voiceControl(path)}
+    </div>
+    ${textarea(path, placeholder)}
+    <span class="voice-status" data-voice-status="${path}" aria-live="polite"></span>
+    ${hint? `<div class="t-caption hint">${hint}</div>`:''}
+  </div>`;
 }
 
 function radioGroup(path, options, opts){
@@ -620,6 +712,21 @@ function stepLocations(){
 }
 
 /* --- STEP 3 --- */
+const PRONOUN_OPTIONS = [
+  { value:'he/him',     label:'He / him' },
+  { value:'she/her',    label:'She / her' },
+  { value:'they/them',  label:'They / them' }
+];
+const DEFAULT_AGENT_NAME = 'Mia';
+const DEFAULT_AGENT_PRONOUNS = 'she/her';
+
+function namingState(locId){
+  const n = FD.naming[locId] || { choice:'Mia', custom:'', pronouns:DEFAULT_AGENT_PRONOUNS };
+  if(!n.pronouns) n.pronouns = DEFAULT_AGENT_PRONOUNS;
+  FD.naming[locId] = n;
+  return n;
+}
+
 function stepNaming(){
   const named = FD.locations.filter(l=>l.name.trim());
   if(!named.length){
@@ -627,24 +734,36 @@ function stepNaming(){
       `<div class="t-caption">Add at least one location in Step 2 first.</div>` + footerNav();
   }
   return panelHead("Step 3 of 9","AI agent naming","What name do you want for our AI agent at each of your locations? Guests will see this name in conversations.") +
+    `<div class="naming-list">` +
     named.map(l => {
-      const n = FD.naming[l.id] || { choice:'Mia', custom:'' };
-      FD.naming[l.id] = n;
-      return `<div class="repeater-row">
-        <div class="t-label" style="margin-bottom:10px;">${esc(l.name)}</div>
-        <div class="choice-group row">
-          <label class="choice ${n.choice==='Mia'?'selected':''}">
-            <input type="radio" name="naming_${l.id}" data-naming-choice="${l.id}" value="Mia" ${n.choice==='Mia'?'checked':''}>
-            <div class="choice-text">Mia (default)</div>
-          </label>
-          <label class="choice ${n.choice==='custom'?'selected':''}">
-            <input type="radio" name="naming_${l.id}" data-naming-choice="${l.id}" value="custom" ${n.choice==='custom'?'checked':''}>
-            <div class="choice-text">Custom name</div>
-          </label>
+      const n = namingState(l.id);
+      const isCustom = n.choice === 'custom';
+      return `<div class="naming-row">
+        <div class="naming-loc">
+          <div class="t-title">${esc(l.name)}</div>
         </div>
-        ${n.choice==='custom' ? `<div style="margin-top:10px;"><input type="text" data-naming-custom="${l.id}" value="${esc(n.custom)}" placeholder="Enter a custom name"></div>` : ''}
+        <div>
+          <label class="naming-col-label" for="agentName_${l.id}">Agent name</label>
+          ${isCustom
+            ? `<input type="text" id="agentName_${l.id}" data-naming-custom="${l.id}" value="${esc(n.custom)}" placeholder="Enter a custom name">`
+            : `<input type="text" id="agentName_${l.id}" value="${esc(DEFAULT_AGENT_NAME)}" readonly>`}
+          <div class="naming-swap">
+            <button type="button" class="btn btn-text" data-naming-swap="${l.id}" data-to="${isCustom?'Mia':'custom'}">
+              ${isCustom ? 'Use default name instead' : 'Use a custom name instead'}
+            </button>
+          </div>
+        </div>
+        <div>
+          <span class="naming-col-label">Pronouns</span>
+          <div class="pronoun-group">
+            ${PRONOUN_OPTIONS.map(pr => `<label class="pronoun-chip ${n.pronouns===pr.value?'selected':''}">
+              <input type="radio" name="pronouns_${l.id}" data-naming-pronouns="${l.id}" value="${esc(pr.value)}" ${n.pronouns===pr.value?'checked':''}>
+              ${esc(pr.label)}
+            </label>`).join('')}
+          </div>
+        </div>
       </div>`;
-    }).join('') + footerNav();
+    }).join('') + `</div>` + footerNav();
 }
 
 /* --- STEP 4: Handoff & Routing --- */
@@ -660,8 +779,8 @@ function handoffFieldSet(basePath, locId){
     ${fieldWrap("What method should Mia say the team will use to reach out?", true,
       radioGroup(basePath+'.contactMethod', ["Email","Phone","Text","Either"], {row:true}))}
 
-    ${fieldWrap("Walk us through your current process, from inquiry to booked event.", false,
-      textarea(basePath+'.process','Describe the steps your team takes today…'))}
+    ${voiceField("Walk us through your current process, from inquiry to booked event.", false,
+      basePath+'.process','Describe the steps your team takes today…')}
 
     ${fieldWrap("Does your process today include a call or site visit before you send a quote or contract?", true,
       radioGroup(basePath+'.preQualStep', ["Yes, always","Sometimes, depending on the lead","No, we go straight to quote/contract"]))}
@@ -703,7 +822,7 @@ function handoffFieldSet(basePath, locId){
       ${repeaterAddBtn(basePath+'.coordinators','Add another coordinator')}
     </div>
 
-    ${fieldWrap("How do you assign leads today?", false, textarea(basePath+'.routing',''))}
+    ${voiceField("How do you assign leads today?", false, basePath+'.routing','')}
   `;
 }
 
@@ -862,6 +981,10 @@ function specialFieldSet(basePath){
   d.pricingExceptions = d.pricingExceptions || [];
   d.carveOuts = d.carveOuts || [];
   return `
+    ${fieldWrap("When a guest messages outside your regular or private-event hours, how should Mia respond?", true,
+      radioGroup(basePath+'.afterHours', ["Respond normally, just like during business hours","Send an acknowledgment now; full response comes during business hours","Something else"]))}
+    ${d.afterHours==='Something else' ? fieldWrap("Describe", false, textarea(basePath+'.afterHoursOther','')) : ''}
+
     <div class="field">
       <label class="t-label">Room availability rules</label>
       <div class="t-caption" style="margin-bottom:10px;">Rooms that should be unavailable only under certain conditions — or always off-limits.</div>
@@ -968,6 +1091,108 @@ function stepReview(){
     </div>
     <div class="t-caption" style="margin-top:8px;">Full detail for every section is included in the submission — this is a quick summary, not the whole record.</div>
     ` + footerNav();
+}
+
+/* ============================================================
+   VOICE INPUT (Web Speech API — transcribes into the bound field)
+   ============================================================ */
+const VOICE = { rec: null, path: null };
+
+function voiceSupported(){
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function voiceEls(path){
+  return {
+    btn: document.querySelector(`[data-voice-btn="${path}"]`),
+    status: document.querySelector(`[data-voice-status="${path}"]`),
+    field: document.querySelector(`[data-bind="${path}"]`)
+  };
+}
+
+function voiceSetUI(path, recording, msg){
+  const { btn, status } = voiceEls(path);
+  if(btn){
+    btn.classList.toggle('recording', !!recording);
+    btn.setAttribute('aria-pressed', recording ? 'true' : 'false');
+    const label = btn.querySelector('.voice-label');
+    if(label) label.textContent = recording ? 'Recording — click to stop' : 'Click to record response';
+  }
+  if(status) status.textContent = msg || '';
+}
+
+function voiceAppend(path, text){
+  const { field } = voiceEls(path);
+  const chunk = text.trim();
+  if(!chunk) return;
+  const current = (getPath(FD, path) || '');
+  const next = current + (current && !/\s$/.test(current) ? ' ' : '') + chunk;
+  setPath(FD, path, next);
+  if(field){
+    field.value = next;
+    field.scrollTop = field.scrollHeight;
+  }
+}
+
+function voiceStop(){
+  const rec = VOICE.rec;
+  if(!rec) return;
+  VOICE.rec = null;
+  try{ rec.stop(); }catch(e){ /* already stopped */ }
+}
+
+function voiceStart(path){
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!Ctor) return;
+  const rec = new Ctor();
+  rec.lang = 'en-US';
+  rec.continuous = true;
+  rec.interimResults = true;
+  VOICE.rec = rec;
+  VOICE.path = path;
+
+  rec.onstart = () => voiceSetUI(path, true, 'Listening…');
+
+  rec.onresult = (e) => {
+    let finalText = '', interim = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      const r = e.results[i];
+      if(r.isFinal) finalText += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    if(finalText) voiceAppend(path, finalText);
+    voiceSetUI(path, true, interim.trim() ? '…' + interim.trim() : 'Listening…');
+  };
+
+  rec.onerror = (e) => {
+    const messages = {
+      'not-allowed': 'Microphone access was blocked — allow it in your browser settings, then try again.',
+      'service-not-allowed': 'Microphone access was blocked — allow it in your browser settings, then try again.',
+      'audio-capture': 'No microphone found.',
+      'no-speech': "Didn't catch anything — click to record again.",
+      'network': 'Network error while transcribing — please try again.'
+    };
+    if(VOICE.rec === rec) VOICE.rec = null;
+    VOICE.path = null;
+    voiceSetUI(path, false, messages[e.error] || 'Recording stopped.');
+  };
+
+  rec.onend = () => {
+    const wasActive = VOICE.rec === rec;   // false when onerror already cleared it
+    if(VOICE.rec === rec) VOICE.rec = null;
+    if(VOICE.path === path) VOICE.path = null;
+    if(wasActive) voiceSetUI(path, false, 'Added to your answer above.');
+    else voiceSetUI(path, false, undefined);
+  };
+
+  try{
+    rec.start();
+    voiceSetUI(path, true, 'Listening…');
+  }catch(err){
+    VOICE.rec = null;
+    VOICE.path = null;
+    voiceSetUI(path, false, "Couldn't start recording — please try again.");
+  }
 }
 
 /* ============================================================
@@ -1103,19 +1328,23 @@ function bindStepEvents(){
   });
 
   // naming (step 3) special bindings
-  panel.querySelectorAll('[data-naming-choice]').forEach(el => {
-    el.addEventListener('change', () => {
-      const locId = el.dataset.namingChoice;
-      FD.naming[locId] = FD.naming[locId] || {choice:'Mia',custom:''};
-      FD.naming[locId].choice = el.value;
+  panel.querySelectorAll('[data-naming-swap]').forEach(el => {
+    el.addEventListener('click', () => {
+      const n = namingState(el.dataset.namingSwap);
+      n.choice = el.dataset.to;
+      if(n.choice === 'Mia') n.pronouns = DEFAULT_AGENT_PRONOUNS;   // Mia defaults back to she/her
       renderStepInPlace();
     });
   });
   panel.querySelectorAll('[data-naming-custom]').forEach(el => {
     el.addEventListener('input', () => {
-      const locId = el.dataset.namingCustom;
-      FD.naming[locId] = FD.naming[locId] || {choice:'custom',custom:''};
-      FD.naming[locId].custom = el.value;
+      namingState(el.dataset.namingCustom).custom = el.value;
+    });
+  });
+  panel.querySelectorAll('[data-naming-pronouns]').forEach(el => {
+    el.addEventListener('change', () => {
+      namingState(el.dataset.namingPronouns).pronouns = el.value;
+      renderStepInPlace();
     });
   });
 
@@ -1166,14 +1395,28 @@ function bindStepEvents(){
     });
   });
 
+  // voice input buttons
+  panel.querySelectorAll('[data-voice-btn]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const path = btn.dataset.voiceBtn;
+      if(VOICE.rec){
+        const sameField = VOICE.path === path;
+        voiceStop();
+        if(!sameField) setTimeout(() => voiceStart(path), 300);  // let the old session release the mic
+        return;
+      }
+      voiceStart(path);
+    });
+  });
+
   // nav buttons
   const back = document.getElementById('btnBack');
-  if(back) back.addEventListener('click', () => { if(step>1){ step--; renderAll(); window.scrollTo({top:0,behavior:'smooth'}); }});
+  if(back) back.addEventListener('click', () => { if(step>1){ voiceStop(); step--; renderAll(); window.scrollTo({top:0,behavior:'smooth'}); }});
   const next = document.getElementById('btnNext');
   if(next) next.addEventListener('click', () => {
     const err = validateStep();
     if(err){ showError(err); return; }
-    if(step<STEPS.length){ step++; renderAll(); window.scrollTo({top:0,behavior:'smooth'}); }
+    if(step<STEPS.length){ voiceStop(); step++; renderAll(); window.scrollTo({top:0,behavior:'smooth'}); }
   });
   const submit = document.getElementById('btnSubmit');
   if(submit) submit.addEventListener('click', doSubmit);
@@ -1209,6 +1452,7 @@ function validateStep(){
 
 /* ---------------- SUBMIT ---------------- */
 async function doSubmit(){
+  voiceStop();   // let any in-flight speech finalize into the field
   hideError();
   if(!CONFIG.ENDPOINT_URL || CONFIG.ENDPOINT_URL.includes('PASTE_YOUR')){
     showError("This form isn't connected to a submission endpoint yet. See SETUP_INSTRUCTIONS.md.");
