@@ -138,6 +138,12 @@ textarea.notes:focus{ border-color:var(--venue-blue); box-shadow:0 0 0 3px var(-
 .item-tag{ display:inline-block; margin-left:var(--sp-8); font-size:10.5px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase;
   padding:2px 6px; border-radius:var(--radius-sm); background:oklch(0.554 0.130 59 / 0.14); color:var(--warm-amber); vertical-align:1.5px; white-space:nowrap; }
 .checklist-item.checked .item-tag{ opacity:0.65; }
+.checklist-item .item-bullets{ margin:6px 0 0; padding-left:18px; }
+.checklist-item .item-bullets li{ font-size:13px; line-height:1.5; color:var(--evening-slate); }
+.checklist-item.checked .item-bullets li{ color:var(--mid-slate); }
+.tone-examples{ display:flex; flex-direction:column; gap:var(--sp-8); margin-top:var(--sp-10); }
+.tone-example{ margin:0; background:var(--clean-linen); border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+  padding:var(--sp-10) var(--sp-12); font-size:13.5px; line-height:1.55; color:var(--night-ink); font-style:italic; }
 .select-all{ display:flex; gap:var(--sp-10); align-items:center; padding:var(--sp-10) 0; border-bottom:1px solid var(--border-subtle); cursor:pointer; }
 .select-all input[type=checkbox]{ width:16px; height:16px; accent-color:var(--venue-blue); flex-shrink:0; }
 .select-all span{ font-size:12px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; color:var(--evening-slate); }
@@ -372,12 +378,15 @@ const POSTCALL_CHECKLIST = [
         desc: "Get the actual list of dates." },
       { key: "team_setup", label: "Team set-up",
         desc: "Get all of it: name, role title, email address." },
-      { key: "tone_love", label: "1\u20133 example responses they'd love",
-        desc: "Get actual phrases \u2014 in their words, not a description of the vibe." },
-      { key: "tone_never", label: "1\u20133 example responses they never want used",
-        desc: "Get actual phrases." },
-      { key: "word_swaps", label: "Any specific word swaps",
-        desc: "Get actual word swaps \u2014 e.g. \"food & beverage minimum,\" never \"bar minimum.\"" }
+      { key: "tone_examples", label: "Example phrases",
+        bullets: [
+          "Get 1\u20133 phrases they love",
+          "Get 1\u20133 phrases they never want used"
+        ],
+        examples: [
+          "Thank you for your inquiry regarding your event on the 14th of June. Given a guest count of 120, I would be pleased to recommend our East Room, which affords the elegance and capacity your occasion warrants. Please find our floor plan and pricing enclosed, and do let me know a convenient time for a private viewing.",
+          "We are so stoked to host you soon. Let us know whenever you wanna chat. No rush at all!"
+        ] }
     ]
   },
   {
@@ -390,8 +399,8 @@ const POSTCALL_CHECKLIST = [
 
 /* Wrap-up items that close out the discovery call itself. */
 const DISCOVERY_WRAPUP = [
-  { key: "confirm_files", label: "Confirm every outstanding file (rate sheet, menus, policies, and \u2014 Tripleseat users only \u2014 the room setup screenshot) and get a firm date for anything missing" },
-  { key: "explain_test_mode", label: "Explain what \"test mode\" is and roughly how long it runs, so they don't stall without knowing what's next" },
+  { key: "confirm_files", label: "Confirm every outstanding file and get a firm date for anything missing" },
+  { key: "explain_test_mode", label: "Explain what \"test mode\" is and roughly how long it runs" },
   { key: "confirm_verification_call", label: "Confirm the date/time for the verification call and what to expect" }
 ];
 
@@ -533,9 +542,11 @@ function renderDiscoveryTab(){
       <div class="card-head">
         <div class="t-title"><span class="phase-num">\u2713</span>Before you hang up</div>
       </div>
-      <div class="qblock">
-        <ul class="subquestions">${DISCOVERY_WRAPUP.map(item => `<li>${esc(item.label)}</li>`).join('')}</ul>
-      </div>
+      ${DISCOVERY_WRAPUP.map(item => `
+        <div class="qblock">
+          <div class="question">${esc(item.label)}</div>
+        </div>
+      `).join('')}
       <textarea class="notes" data-phase="wrapup" placeholder="Notes from the call\u2026">${esc(notes.wrapup||'')}</textarea>
       <div class="save-indicator" data-indicator="wrapup"></div>
     </div>`;
@@ -573,6 +584,9 @@ function renderChecklistItem(type, stored, item){
       <div class="item-body">
         <div class="item-label">${esc(item.label)}${item.tag ? `<span class="item-tag">${esc(item.tag)}</span>` : ''}</div>
         ${item.desc ? `<div class="item-desc">${esc(item.desc)}</div>` : ''}
+        ${item.bullets ? `<ul class="item-bullets">${item.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+        ${item.examples ? `<div class="tone-examples">${item.examples.map(ex => `
+          <blockquote class="tone-example">${esc(ex)}</blockquote>`).join('')}</div>` : ''}
       </div>
     </div>`;
 }
